@@ -8,71 +8,26 @@
     <style>
       body {
         font-family: Arial, sans-serif;
-        margin: 0;
-        display: flex;
-        height: 100vh;
-        overflow: hidden;
-      }
-      #sidebar {
-        width: 20%;
-        padding: 20px;
-        box-sizing: border-box;
-        background-color: #f4f4f4;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: center;
-        border-right: 1px solid #ddd;
-      }
-      #chart {
-        width: 80%;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #fff;
+        text-align: center;
       }
       svg {
         display: block;
         margin: auto;
       }
-      .instruction {
-        margin-top: 20px;
-        font-size: 14px;
-        color: #666;
-        text-align: center;
-      }
-      h2 {
-        margin: 0;
-        font-size: 24px;
-        color: #333;
-      }
-      #level-label {
-        margin-top: 10px;
-        font-size: 18px;
-        font-weight: bold;
-        color: #555;
-        text-align: center;
-      }
     </style>
   </head>
   <body>
-    <div id="sidebar">
-      <h1>HDB Resale Price</h1>
-      <h2>Current Level</h2>
-      <div id="level-label">Overview</div>
-      <div id="instruction-text" class="instruction">
-        Click on a region or town to explore.
-      </div>
-    </div>
+    <h1>HDB Resale Price Sunburst Chart</h1>
     <div id="chart"></div>
 
     <script>
       d3.csv("../geocoded.csv").then((data) => {
         function getPriceCategory(price) {
-          if (price < 450000) return "Low";
-          if (price < 700000) return "Medium";
-          return "High";
+          if (price < 250000) return "Very Low";
+          if (price < 400000) return "Low";
+          if (price < 600000) return "Medium";
+          if (price < 800000) return "High";
+          return "Very High";
         }
 
         const regionMapping = {
@@ -104,7 +59,7 @@
           "MARINE PARADE": "East",
         };
 
-        let hierarchy = { name: "Overview", children: [] };
+        let hierarchy = { name: "root", children: [] };
 
         data.forEach((d) => {
           let town = d.town;
@@ -146,9 +101,8 @@
       });
 
       function drawSunburst(data) {
-        const screenHeight = window.innerHeight;
-        const chartHeight = screenHeight * 0.8; // 80% of screen height
-        const width = chartHeight; // Make width equal to height for a square chart
+        const width = 928;
+        const height = width;
         const radius = width / 6;
 
         // Color scales
@@ -180,10 +134,8 @@
         const svg = d3
           .select("#chart")
           .append("svg")
-          .attr("width", width)
-          .attr("height", chartHeight)
-          .attr("viewBox", [-width / 2, -chartHeight / 2, width, chartHeight]) // Adjust viewBox to fit the chart
-          .style("font", "9px sans-serif");
+          .attr("viewBox", [-width / 2, -height / 2, width, width])
+          .style("font", "10px sans-serif");
 
         const path = svg
           .append("g")
@@ -230,7 +182,7 @@
               .ancestors()
               .map((d) => d.data.name)
               .reverse()
-              .join("/")}\n${format(d.value)}`
+              .join("/")}\n${format(d.value)} Transactions` // Add "Transactions" here
         );
 
         const label = svg
@@ -272,21 +224,6 @@
                 y1: Math.max(0, d.y1 - p.depth),
               })
           );
-
-          // Update the level label
-          const levelLabel = p
-            .ancestors()
-            .map((d) => d.data.name)
-            .reverse()
-            .join(" > ");
-          d3.select("#level-label").text(levelLabel || "Overview");
-
-          // Update instructions
-          const instructionText =
-            p.depth === 0
-              ? "Click on a region or town to explore."
-              : "Click the center of the circle to zoom out.";
-          d3.select("#instruction-text").text(instructionText);
 
           const t = svg.transition().duration(event.altKey ? 7500 : 750);
 
