@@ -17,7 +17,7 @@
         width: 20%;
         padding: 20px;
         box-sizing: border-box;
-        background-color: #f8f9fa;
+        background-color: #f4f4f4;
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
@@ -32,109 +32,46 @@
         align-items: center;
         background-color: #fff;
       }
-      h1 {
-        font-size: 22px;
-        font-weight: bold;
-        color: #222;
-        text-align: center;
-        margin-bottom: 10px;
-      }
-      h2 {
-        margin-top: 15px;
-        font-size: 18px;
-        color: #333;
-      }
-      #level-label {
-        margin-top: 5px;
-        font-size: 16px;
-        font-weight: bold;
-        color: #555;
-        text-align: center;
+      svg {
+        display: block;
+        margin: auto;
       }
       .instruction {
+        margin-top: 20px;
         font-size: 14px;
         color: #666;
         text-align: center;
+      }
+      h2 {
+        margin: 0;
+        font-size: 24px;
+        color: #333;
+      }
+      #level-label {
         margin-top: 10px;
-      }
-      #legend {
-        margin-top: 20px;
-        display: none;
-        text-align: left; /* Align text to the left */
-        border-radius: 5px;
-        padding: 15px;
-        background: #ffffff;
-        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-        width: 200px; /* Fixed width for consistency */
-      }
-
-      .legend-item {
-        display: flex;
-        align-items: flex-start; /* Align items to the top */
-        margin-bottom: 16px; /* Reduce spacing between legend items */
-      }
-
-      .legend-box {
-        width: 16px; /* Slightly smaller box */
-        height: 16px;
-        margin-right: 8px; /* Reduce spacing between box and text */
-        border-radius: 4px;
-        flex-shrink: 0; /* Prevent the box from shrinking */
-        margin-top: 2px; /* Align box with the first line of text */
-      }
-
-      .legend-text {
-        display: flex;
-        flex-direction: column;
-        font-size: 14px; /* Adjust font size */
-        line-height: 0.9; /* Reduce line height for tighter spacing */
-      }
-
-      .legend-text strong {
-        font-weight: bold; /* Make category text bold */
-        color: #333; /* Darker color for category */
-        margin-bottom: 1px; /* Remove spacing below category */
-      }
-
-      .legend-text span {
-        font-size: 12px; /* Smaller font size for price range */
-        color: #666; /* Lighter color for price range */
-        margin-top: 2px; /* Add minimal spacing above price range */
+        font-size: 18px;
+        font-weight: bold;
+        color: #555;
+        text-align: center;
       }
     </style>
   </head>
   <body>
     <div id="sidebar">
-      <h1>🏠 HDB Resale Price</h1>
+      <h1>HDB Resale Price</h1>
       <h2>Current Level</h2>
       <div id="level-label">Overview</div>
       <div id="instruction-text" class="instruction">
         Click on a region or town to explore.
       </div>
-      <div id="legend">
-        <h3>Price Categories</h3>
-        <div class="legend-items"></div>
-      </div>
     </div>
     <div id="chart"></div>
 
     <script>
-      const priceRanges = {
-        "2 ROOM": { low: 306000, medium: 374000 },
-        "3 ROOM": { low: 376200, medium: 459800 },
-        "4 ROOM": { low: 531000, medium: 649000 },
-        "5 ROOM": { low: 621000, medium: 759000 },
-        EXECUTIVE: { low: 769500, medium: 940500 },
-      };
-
       d3.csv("../geocoded.csv").then((data) => {
-        function getPriceCategory(price, flatType) {
-          if (!priceRanges[flatType]) return "Unknown"; // Handle unexpected flat types
-
-          const { low, medium } = priceRanges[flatType];
-
-          if (price < low) return "Low";
-          if (price <= medium) return "Medium";
+        function getPriceCategory(price) {
+          if (price < 450000) return "Low";
+          if (price < 700000) return "Medium";
           return "High";
         }
 
@@ -173,7 +110,7 @@
           let town = d.town;
           let region = regionMapping[town];
           let flatType = d.flat_type;
-          let priceCategory = getPriceCategory(+d.resale_price, flatType);
+          let priceCategory = getPriceCategory(+d.resale_price);
 
           // Find or create the region node
           let regionNode = hierarchy.children.find((r) => r.name === region);
@@ -218,9 +155,8 @@
         const regionColor = d3.scaleOrdinal(d3.schemeCategory10); // Consistent colors for regions
         const flatTypeColor = d3.scaleOrdinal(d3.schemeSet3); // Unique colors for flat types
         const priceColor = d3
-          .scaleOrdinal()
-          .domain(["Low", "Medium", "High"])
-          .range(["#ffcccc", "#ff6666", "#ff0000"]); // Red scale for price ranges
+          .scaleSequential(d3.interpolateReds) // Red scale for price ranges
+          .domain([0, 4]); // 0: Very Low, 1: Low, 2: Medium, 3: High, 4: Very High
 
         const hierarchy = d3
           .hierarchy(data)
@@ -262,7 +198,15 @@
             } else if (d.depth === 3) {
               return flatTypeColor(d.data.name); // Flat type level
             } else if (d.depth === 4) {
-              return priceColor(d.data.name); // Price range level
+              const priceCategory = d.data.name;
+              const priceIndex = [
+                "Very Low",
+                "Low",
+                "Medium",
+                "High",
+                "Very High",
+              ].indexOf(priceCategory);
+              return priceColor(priceIndex); // Price range level
             }
             return "#ccc"; // Fallback color
           })
@@ -310,55 +254,6 @@
           .attr("pointer-events", "all")
           .on("click", clicked);
 
-        function updateLegend(selectedFlatType) {
-          const legend = document.getElementById("legend");
-          const legendContainer = legend.querySelector(".legend-items");
-
-          // Clear previous legend items
-          legendContainer.innerHTML = "";
-
-          // Only show legend when at the flat type level (depth 3)
-          if (selectedFlatType && priceRanges[selectedFlatType]) {
-            legend.style.display = "block";
-
-            const priceCategories = ["Low", "Medium", "High"];
-            const flatColor = flatTypeColor(selectedFlatType); // Get flat type color
-
-            priceCategories.forEach((category, index) => {
-              const priceValue =
-                index === 0
-                  ? `Below $${priceRanges[
-                      selectedFlatType
-                    ].low.toLocaleString()}`
-                  : index === 1
-                  ? `$${priceRanges[
-                      selectedFlatType
-                    ].low.toLocaleString()} - $${priceRanges[
-                      selectedFlatType
-                    ].medium.toLocaleString()}`
-                  : `Above $${priceRanges[
-                      selectedFlatType
-                    ].medium.toLocaleString()}`;
-
-              const legendItem = document.createElement("div");
-              legendItem.classList.add("legend-item");
-
-              const legendBox = document.createElement("div");
-              legendBox.classList.add("legend-box");
-              legendBox.style.backgroundColor = priceColor(category); // Ensure matching colors
-
-              const legendText = document.createElement("div");
-              legendText.classList.add("legend-text");
-              legendText.innerHTML = `<strong>${category}</strong><br><span>${priceValue}</span>`; // Category above, price range below
-
-              legendItem.appendChild(legendBox);
-              legendItem.appendChild(legendText);
-              legendContainer.appendChild(legendItem);
-            });
-          } else {
-            legend.style.display = "none"; // Hide legend if not at flat type level
-          }
-        }
         function clicked(event, p) {
           parent.datum(p.parent || root);
 
@@ -385,10 +280,6 @@
             .reverse()
             .join(" > ");
           d3.select("#level-label").text(levelLabel || "Overview");
-
-          // Check if the clicked level is a flat type (depth 3)
-          const selectedFlatType = p.depth === 3 ? p.data.name : null;
-          updateLegend(selectedFlatType);
 
           // Update instructions
           const instructionText =
