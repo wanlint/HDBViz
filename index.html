@@ -127,7 +127,7 @@
         EXECUTIVE: { low: 769500, medium: 940500 },
       };
 
-      d3.csv("../geocoded.csv").then((data) => {
+      d3.csv("data/geocoded.csv").then((data) => {
         function getPriceCategory(price, flatType) {
           if (!priceRanges[flatType]) return "Unknown"; // Handle unexpected flat types
 
